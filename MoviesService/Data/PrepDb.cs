@@ -27,6 +27,7 @@ namespace MoviesService.Data
                 }
                 catch (Exception ex)
                 {
+                    // Log exception
                     // Console.WriteLine($"--> Could not run migrations: {ex.Message}");
                 }
             }
@@ -44,10 +45,11 @@ namespace MoviesService.Data
         {
             private readonly AppDbContext _context;
             private readonly IConfiguration _config;
-            private readonly bool IsMovieLimit;
-            private readonly bool IsSerialLimit;
-            private readonly int MaxMovies;
-            private readonly int MaxSerials;
+            private readonly string filePath;
+            private readonly bool isMovieLimit;
+            private readonly bool isSerialLimit;
+            private readonly int maxMovies;
+            private readonly int maxSerials;
             private int CurrentMovies = 0;
             private int CurrentSerials = 0;
 
@@ -58,52 +60,56 @@ namespace MoviesService.Data
 
                 ArgumentNullException.ThrowIfNull(_config);
 
-                if (!bool.TryParse(_config["LoadingData:IsMovieLimit"], out IsMovieLimit))
+                if (!bool.TryParse(_config["LoadingData:IsMovieLimit"], out isMovieLimit))
                 {
-                    ArgumentNullException.ThrowIfNull(IsMovieLimit);
+                    ArgumentNullException.ThrowIfNull(isMovieLimit);
                 }
 
-                if (!bool.TryParse(_config["LoadingData:IsSerialLimit"], out IsSerialLimit))
+                if (!bool.TryParse(_config["LoadingData:IsSerialLimit"], out isSerialLimit))
                 {
-                    ArgumentNullException.ThrowIfNull(IsSerialLimit);
+                    ArgumentNullException.ThrowIfNull(isSerialLimit);
                 }
 
-                if (!int.TryParse(_config["LoadingData:MaxMovies"], out MaxMovies))
+                if (!int.TryParse(_config["LoadingData:MaxMovies"], out maxMovies))
                 {
-                    ArgumentNullException.ThrowIfNull(MaxMovies);
+                    ArgumentNullException.ThrowIfNull(maxMovies);
                 }
 
-                if (!int.TryParse(_config["LoadingData:MaxSerials"], out MaxSerials))
+                if (!int.TryParse(_config["LoadingData:MaxSerials"], out maxSerials))
                 {
-                    ArgumentNullException.ThrowIfNull(MaxSerials);
+                    ArgumentNullException.ThrowIfNull(maxSerials);
                 }
+
+                ArgumentException.ThrowIfNullOrEmpty(_config["LoadingData:DataFileName"]);
+                ArgumentException.ThrowIfNullOrEmpty(_config["LoadingData:DownloadFolder"]);
+
+                filePath = Path.Combine(Directory.GetCurrentDirectory(), _config["LoadingData:DownloadFolder"], _config["LoadingData:DataFileName"]);
             }
 
             public void Load() 
             {
-                if (GetDataFromPath(_config["LoadingData:DataPath"])) return;
+                if (GetDataFromPath()) return;
 
                 if (GetDataFromURL()) return;
 
                 GetSampleData();
             }
 
-            private bool GetDataFromPath(string dataPath) 
+            private bool GetDataFromPath() 
             {
-                ArgumentNullException.ThrowIfNull(dataPath);
-                if (string.IsNullOrEmpty(dataPath))
+                if (string.IsNullOrEmpty(filePath))
                 {
                     return false;
                 }
 
-                if (!File.Exists(dataPath) || Path.GetExtension(dataPath) == ".zip")
+                if (!File.Exists(filePath) || Path.GetExtension(filePath) == ".zip")
                 {
                     return false;
                 }
 
                 try
                 {
-                    using (FileStream fileStream = new FileStream(dataPath, FileMode.Open, FileAccess.Read))
+                    using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
                     using (GZipStream gZipStream = new GZipStream(fileStream, CompressionMode.Decompress))
                     using (StreamReader reader = new StreamReader(gZipStream)) 
                     {
@@ -111,8 +117,8 @@ namespace MoviesService.Data
 
                         while (!reader.EndOfStream)
                         {
-                            if (IsMovieLimit && MaxMovies < CurrentMovies &&
-                                IsSerialLimit && MaxSerials < CurrentSerials)
+                            if (isMovieLimit && maxMovies < CurrentMovies &&
+                                isSerialLimit && maxSerials < CurrentSerials)
                             {
                                 break;
                             }
@@ -140,7 +146,7 @@ namespace MoviesService.Data
                     return false;
                 }
 
-                if (string.IsNullOrEmpty(_config["LoadingData:DataPath"]))
+                if (string.IsNullOrEmpty(filePath))
                 {
                     return false;
                 }
@@ -156,7 +162,7 @@ namespace MoviesService.Data
                         response.EnsureSuccessStatusCode();
 
                         using (Stream contentStream = response.Content.ReadAsStream(),
-                            fileStream = new FileStream(_config["LoadingData:DataPath"], 
+                            fileStream = new FileStream(filePath, 
                             FileMode.Create, FileAccess.Write, FileShare.None))
                         {
                             contentStream.CopyTo(fileStream);
@@ -169,7 +175,7 @@ namespace MoviesService.Data
                     return false;
                 }
 
-                return GetDataFromPath(_config["LoadingData:DataPath"]);
+                return GetDataFromPath();
             }
 
             private void GetSampleData()
@@ -255,7 +261,7 @@ namespace MoviesService.Data
                     case VideoObjectType.movie:
                     case VideoObjectType.tvMovie:
                     case VideoObjectType.video:
-                        if (IsMovieLimit && MaxMovies < CurrentMovies) 
+                        if (isMovieLimit && maxMovies < CurrentMovies) 
                         {
                             break;
                         }
@@ -274,7 +280,7 @@ namespace MoviesService.Data
                         break;
                     case VideoObjectType.tvSeries:
                     case VideoObjectType.tvMiniSeries:
-                        if (IsSerialLimit && MaxSerials < CurrentSerials)
+                        if (isSerialLimit && maxSerials < CurrentSerials)
                         {
                             break;
                         }
