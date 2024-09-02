@@ -35,6 +35,6 @@ app.UseEndpoints(endpoints =>
     _ = endpoints.MapControllers();
 });
 
-PrepDb.PrepPopulation(app, app.Environment.IsProduction());
+PrepDb.PrepPopulation(app, app.Environment.IsProduction(), app.Services.GetRequiredService<IConfiguration>());
 
 app.Run();
