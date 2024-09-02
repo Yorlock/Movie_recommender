@@ -5,6 +5,7 @@
 
 # File with raw data
 Download/
+logs/
 
 # User-specific files
 *.rsuser

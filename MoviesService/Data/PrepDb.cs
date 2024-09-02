@@ -1,4 +1,5 @@
 ﻿using MoviesService.Models;
+using Serilog;
 using System.IO.Compression;
 
 namespace MoviesService.Data
@@ -22,13 +23,12 @@ namespace MoviesService.Data
             {
                 try
                 {
-                    // Console.WriteLine("--> Attempting to apply migrations...");
+                    Log.Information("Attempting to apply migrations");
                     // context.Database.Migrate();
                 }
                 catch (Exception ex)
                 {
-                    // Log exception
-                    // Console.WriteLine($"--> Could not run migrations: {ex.Message}");
+                    Log.Error($"Could not run migrations: {ex.Message}");
                 }
             }
 
@@ -36,9 +36,12 @@ namespace MoviesService.Data
 
             DataLoader dataLoader = new(context, config);
 
+            Log.Information("Loading data...");
             dataLoader.Load();
 
+            Log.Information("Saving data...");
             context.SaveChanges();
+            Log.Information("Data loaded");
         }
 
         private class DataLoader
@@ -88,10 +91,13 @@ namespace MoviesService.Data
 
             public void Load() 
             {
+                Log.Information("Getting data from file...");
                 if (GetDataFromPath()) return;
-
+                
+                Log.Information("No file found, downloading data...");
                 if (GetDataFromURL()) return;
 
+                Log.Information("Could not get data from URL, creating sample data...");
                 GetSampleData();
             }
 
@@ -131,7 +137,7 @@ namespace MoviesService.Data
                 }
                 catch (Exception ex)
                 {
-                    // Log exception
+                    Log.Error($"Could not open a file: {ex.Message}");
                     if (CurrentMovies > 0 && CurrentSerials > 0) return true;
                     return false;
                 }
@@ -171,7 +177,7 @@ namespace MoviesService.Data
                 }
                 catch (Exception ex)
                 {
-                    // Log exception
+                    Log.Error($"Could not download file: {ex.Message}");
                     return false;
                 }
 

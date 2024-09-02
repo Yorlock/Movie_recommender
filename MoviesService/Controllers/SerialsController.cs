@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MoviesService.Data;
 using MoviesService.Dtos;
 using MoviesService.Models;
+using Serilog;
 
 namespace SerialsService.Controllers
 {
@@ -23,6 +24,8 @@ namespace SerialsService.Controllers
         [HttpGet]
         public ActionResult<IEnumerable<SerialReadDto>> GetSerials()
         {
+            Log.Information("Getting all Serials");
+
             var serialItems = _repository.GetAllSerials().OrderBy(serial => serial.Id);
 
             return Ok(_mapper.Map<IEnumerable<SerialReadDto>>(serialItems));
@@ -31,6 +34,8 @@ namespace SerialsService.Controllers
         [HttpGet("{id}", Name = "GetSerialById")]
         public ActionResult<SerialReadDto> GetSerialById(int id)
         {
+            Log.Information("Getting Serial by id: {@id}", id);
+
             var serialItem = _repository.GetSerialById(id);
 
             if (serialItem != null) return Ok(_mapper.Map<SerialReadDto>(serialItem));
@@ -41,6 +46,8 @@ namespace SerialsService.Controllers
         [HttpPost]
         public ActionResult<SerialReadDto> PostSerial(SerialCreateDto serialCreateDto)
         {
+            Log.Information("Posting Serial: {@serialCreateDto}", serialCreateDto);
+
             var serialModel = _mapper.Map<Serial>(serialCreateDto);
             _repository.CreateSerial(serialModel);
             _repository.SaveChanges();
