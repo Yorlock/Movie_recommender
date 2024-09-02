@@ -1,10 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
-using MoviesService.Dtos;
-using MoviesService.Models;
-using System.Collections.Generic;
-using System.IO;
+﻿using MoviesService.Models;
 using System.IO.Compression;
-using System.Reflection.PortableExecutable;
 
 namespace MoviesService.Data
 {
@@ -27,12 +22,12 @@ namespace MoviesService.Data
             {
                 try
                 {
-                    Console.WriteLine("--> Attempting to apply migrations...");
-                    //context.Database.Migrate();
+                    // Console.WriteLine("--> Attempting to apply migrations...");
+                    // context.Database.Migrate();
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"--> Could not run migrations: {ex.Message}");
+                    // Console.WriteLine($"--> Could not run migrations: {ex.Message}");
                 }
             }
 
@@ -86,28 +81,29 @@ namespace MoviesService.Data
 
             public void Load() 
             {
-                if (GetDataFromPath()) return;
+                if (GetDataFromPath(_config["LoadingData:DataPath"])) return;
+
                 if (GetDataFromURL()) return;
+
                 GetSampleData();
             }
 
-            private bool GetDataFromPath() 
+            private bool GetDataFromPath(string dataPath) 
             {
-                ArgumentNullException.ThrowIfNull(_config);
-                ArgumentNullException.ThrowIfNull(_config["LoadingData:DataPath"]);
-                if (string.IsNullOrEmpty(_config["LoadingData:DataPath"]))
+                ArgumentNullException.ThrowIfNull(dataPath);
+                if (string.IsNullOrEmpty(dataPath))
                 {
                     return false;
                 }
 
-                if (!File.Exists(_config["LoadingData:DataPath"]) || Path.GetExtension(_config["LoadingData:DataPath"]) == ".zip")
+                if (!File.Exists(dataPath) || Path.GetExtension(dataPath) == ".zip")
                 {
                     return false;
                 }
 
                 try
                 {
-                    using (FileStream fileStream = new FileStream(_config["LoadingData:DataPath"], FileMode.Open, FileAccess.Read))
+                    using (FileStream fileStream = new FileStream(dataPath, FileMode.Open, FileAccess.Read))
                     using (GZipStream gZipStream = new GZipStream(fileStream, CompressionMode.Decompress))
                     using (StreamReader reader = new StreamReader(gZipStream)) 
                     {
@@ -139,25 +135,41 @@ namespace MoviesService.Data
 
             private bool GetDataFromURL()
             {
-                ArgumentNullException.ThrowIfNull(_config);
-
                 if (string.IsNullOrEmpty(_config["LoadingData:DataURL"]))
                 {
                     return false;
                 }
 
-                // Download data from URL
-
-                string downloadedFilePath = "";
-
-                if (!File.Exists(downloadedFilePath))
+                if (string.IsNullOrEmpty(_config["LoadingData:DataPath"]))
                 {
                     return false;
                 }
 
-                // Unpack and load
+                try
+                {
+                    using (HttpClient client = new HttpClient())
+                    {
+                        var task = Task.Run(() => client.GetAsync(_config["LoadingData:DataURL"]));
+                        task.Wait();
+                        HttpResponseMessage response = task.Result;
 
-                return true;
+                        response.EnsureSuccessStatusCode();
+
+                        using (Stream contentStream = response.Content.ReadAsStream(),
+                            fileStream = new FileStream(_config["LoadingData:DataPath"], 
+                            FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            contentStream.CopyTo(fileStream);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log exception
+                    return false;
+                }
+
+                return GetDataFromPath(_config["LoadingData:DataPath"]);
             }
 
             private void GetSampleData()
